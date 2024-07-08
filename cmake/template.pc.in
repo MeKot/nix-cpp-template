@@ -1,0 +1,12 @@
+# template.pc.in
+
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+
+Name: @PACKAGE_NAME@
+Description: @PACKAGE_DESCRIPTION@
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lnix_cpp_template
+Cflags: -I${includedir}

@@ -1,0 +1,5 @@
+
+set(TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/template_test.cc
+PARENT_SCOPE)
+
