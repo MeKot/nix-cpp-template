@@ -1,62 +1,114 @@
-# CMake References: https://github.com/Lectem/cpp-boilerplate/blob/master/CMakeLists.txt
-
 cmake_minimum_required(VERSION 3.17)
 
+# Title: "Building in source warning" {{{
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
-    message(FATAL_ERROR "Do not build in-source. Please remove CMakeCache.txt and the CMakeFiles/ directory. Then build out-of-source.")
+
+    message(FATAL_ERROR "Do not build in-source. Remove CMakeCache.txt and the CMakeFiles/")
 endif()
+#}}}
 
-project(nix-cpp-template
-    VERSION 0.0.1
-    LANGUAGES C CXX)
+#message(FATAL_ERROR "Name your project and package, specify version")
 
+set(PACKAGE_NAME "nix-cpp-template")
+set(PACKAGE_DESCRIPTION "Nix CPP Template")
+
+project(${PACKAGE_NAME} VERSION 0.0.1 LANGUAGES CXX)
+
+get_directory_property(PARENT_PROJ_NAME PARENT_DIRECTORY)
+
+message(STATUS "PROJECT_BINARY_DIR ${PROJECT_BINARY_DIR} GENERATOR ${CMAKE_GENERATOR}")
+message(STATUS "PROJECT_SOURCE_DIR ${PROJECT_SOURCE_DIR} CMAKE_SOURCE_DIR ${CMAKE_SOURCE_DIR}")
+
+# Title: "Compile commands dump for clangd" {{{
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 if(CMAKE_EXPORT_COMPILE_COMMANDS)
-  set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES
-      ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+    set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
 endif()
+#}}}
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Title: "Additional build options" {{{
 if(APPLE)
-add_compile_options(-mmacosx-version-min=10.15)
+    add_compile_options(-mmacosx-version-min=10.15)
+    option (WITH_UNWIND "Enable libunwind support" OFF)
+else()
+    option (WITH_UNWIND "Enable libunwind support" ON)
 endif()
-############################
-##  Modules and scripts   ##
-############################
 
-# Standard CMake modules
+option (USE_SANITIZERS "Use asan and usan sanitizers" OFF)
+option (BUILD_DOCS "Generate documentation " ON)
+option (BUILD_SHARED_LIBS "Build shared libraries" OFF)
+option (USE_MOLD "Whether to use mold linker" OFF)
+option (ENABLE_INSTALL "Should ${PROJECT_NAME} be added to the install list?" ON)
+option (ENABLE_TESTING "Should unit tests be compiled." ON)
 
-include(CTest)                          # Must be called before adding tests but after calling project(). This automatically calls enable_testing() and configures ctest targets when using Make/Ninja
-include(CMakeDependentOption)           # This is a really useful scripts that creates options that depends on other options. It can even be used with generator expressions !
-include(GNUInstallDirs)                 # This will define the default values for installation directories (all platforms even if named GNU)
-include(InstallRequiredSystemLibraries) # Tell CMake that the `install` target needs to install required system libraries (eg: Windows SDK)
-include(CMakePackageConfigHelpers)      # Helper to create relocatable packages
+set    (MIMALLOC_OPTS "" CACHE STRING "Additional mimalloc compile options")
+set    (MIMALLOC_LIBNAME "libmimalloc.a" CACHE STRING "Name of mimalloc library")
+set    (${PROJECT_NAME}_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+        CACHE STRING "Path to install ${PROJECT_NAME} Config*.cmake files to.")
+# }}}
 
+# Title: "Standard CMake modules + compiler flag support check" {{{
 
-# Custom modules and scripts
+# Must be called before adding tests but after calling project(). This automatically calls
+# enable_testing() and configures ctest targets when using Make/Ninja
+include(CTest)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake") # Make our cmake scripts available
+# This is a really useful set of scripts that creates options that depends on other options. It can
+# even be used with generator expressions
+include(CMakeDependentOption)
 
-include(BuildHelpers)  # Helpers for writing cmake files
+# This will define the default values for installation directories (all platforms even if named
+# GNU)
+include(GNUInstallDirs)
 
-###############
-##  Options  ##
-###############
+# Tell CMake that the `install` target needs to install required system libraries (eg: Windows SDK)
+include(InstallRequiredSystemLibraries)
 
-option(ENABLE_INSTALL
-    "Should ${PROJECT_NAME} be added to the install list? Useful if included using add_subdirectory." ON)
-option(ENABLE_TESTING "Should unit tests be compiled." ON)
+# Helper to create relocatable packages
+include(CMakePackageConfigHelpers)
 
-set(${PROJECT_NAME}_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
-    CACHE STRING "Path to install ${PROJECT_NAME} Config*.cmake files to.")
+# Helper to make sure that the extra flags we pass to the compiler won't be ignored
+include(CheckCXXCompilerFlag)
 
-####################
-##  Dependencies  ##
-####################
+# Can not use CHECK_CXX_COMPILER_FLAG due to linker problems.
+set(CMAKE_REQUIRED_FLAGS "-fsanitize=address")
+check_cxx_source_compiles("int main() { return 0; }" SUPPORT_ASAN)
 
-find_package(spdlog REQUIRED)
+set(CMAKE_REQUIRED_FLAGS "-fsanitize=undefined")
+check_cxx_source_compiles("int main() { return 0; }" SUPPORT_USAN)
+set(CMAKE_REQUIRED_FLAGS "")
+#}}}
+
+# Title: "Playing nice when included as a submodule/subdirectory" {{{
+if (PARENT_PROJ_NAME)
+
+    message(STATUS "PARENT_PROJ_NAME ${PARENT_PROJ_NAME}")
+else()
+
+    #message(FATAL_ERROR "Set CPP standard for the project")
+
+    set(CMAKE_CXX_STANDARD 14)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+    if (USE_SANITIZERS AND SUPPORT_ASAN)
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
+    endif()
+
+    if (USE_SANITIZERS AND SUPPORT_USAN)
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined")
+    endif()
+
+    include(third_party)
+    include(internal)
+endif()
+#}}}
+
+# Title: "Dependencies" {{{
+
+#message(FATAL_ERROR "Add dependencies here")
+
 find_package(absl REQUIRED)
 
 if(ENABLE_TESTING)
@@ -64,60 +116,65 @@ if(ENABLE_TESTING)
     include(GoogleTest)
     enable_testing()
 endif()
+#}}}
 
-###############
-##  Targets  ##
-###############
+# Title: "Targets" {{{
 
-# Use the project root to find includes
-include_directories(${PROJECT_SOURCE_DIR})
+#message(FATAL_ERROR "Configure targets AND add the target libs as -Libs to pkg-config")
 
-add_subdirectory(src)
+add_library(nix_cpp_template STATIC)
 
-###############
-## Packaging ##
-###############
+# Might want to move that in a separate CMakeLists inside the directories and use add_subdirectory
+target_sources(nix_cpp_template PRIVATE src/simple.cc)
+target_sources(nix_cpp_template PUBLIC
+    FILE_SET HEADERS
+    BASE_DIRS include
+    FILES include/simple.hh
+)
+#}}}
 
+# Title: "Packaging" {{{
 if(ENABLE_INSTALL)
+
     # Use version checking helper provided by CMake so that users can
     # safely use a version number in their find_package calls
     write_basic_package_version_file(
-        ${PROJECT_NAME}ConfigVersion.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}-config-version.cmake
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion)
+        COMPATIBILITY AnyNewerVersion
+    )
 
-    configure_package_config_file(
-        ${PROJECT_SOURCE_DIR}/cmake/Config.cmake.in
-        ${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-        INSTALL_DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKEDIR}
-        NO_SET_AND_CHECK_MACRO
-        NO_CHECK_REQUIRED_COMPONENTS_MACRO)
-
-    install(
-        TARGETS what_time simple
-        EXPORT ${PROJECT_NAME}_Targets
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-    install(DIRECTORY src
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        FILES_MATCHING PATTERN *.h)
-
-    # This time, install all the exported targets under the
-    # ${PROJECT_NAME}_Targets name.
-    install(
-        EXPORT ${PROJECT_NAME}_Targets
-        NAMESPACE ${PROJECT_NAME}::
-        FILE ${PROJECT_NAME}Targets.cmake
-        DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKEDIR})
-
-    # So far we only installed the exported targets, now install the package config files.
-    #
-    # If you do not list headers in the PUBLIC_HEADER property, you will need to copy them using
-    # `install(FILES)` or `install(DIRECTORY)` too.
-    #
-    # In that case, you can use CMAKE_INSTALL_INCLUDEDIR as the base destination path.
     install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-        DESTINATION ${${PROJECT_NAME}_INSTALL_CMAKEDIR})
+        ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}-config-version.cmake
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}
+    )
+
+    #message(FATAL_ERROR "DID YOU ADD THE TARGET LIBS TO THE PKG-CONFIG???")
+
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/template.pc.in
+        ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}.pc
+    )
+
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+    )
+
+    #message(FATAL_ERROR "Add all the exportable targets here")
+
+    install(
+        TARGETS nix_cpp_template
+        EXPORT ${PACKAGE_NAME}Targets
+        FILE_SET HEADERS
+    )
+
+    install(
+        EXPORT ${PACKAGE_NAME}Targets
+        NAMESPACE nixcpptmplt::
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}
+    )
+
 endif()
+
+#}}}
