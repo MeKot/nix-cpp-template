@@ -1,4 +1,4 @@
-#include "src/simple.h"
+#include <simple.hh>
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"

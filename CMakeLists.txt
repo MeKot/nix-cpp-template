@@ -50,9 +50,16 @@ set    (${PROJECT_NAME}_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJEC
 
 # Title: "Standard CMake modules + compiler flag support check" {{{
 
-# Must be called before adding tests but after calling project(). This automatically calls
-# enable_testing() and configures ctest targets when using Make/Ninja
-include(CTest)
+if(ENABLE_TESTING)
+
+    find_package(GTest REQUIRED)
+
+    # Must be called before adding tests but after calling project(). This automatically calls
+    # enable_testing() and configures ctest targets when using Make/Ninja
+
+    include(CTest)
+    include(GoogleTest)
+endif()
 
 # This is a really useful set of scripts that creates options that depends on other options. It can
 # even be used with generator expressions
@@ -107,12 +114,6 @@ endif()
 message(FATAL_ERROR "Add dependencies here")
 
 find_package(absl REQUIRED)
-
-if(ENABLE_TESTING)
-    find_package(GTest REQUIRED)
-    include(GoogleTest)
-    enable_testing()
-endif()
 #}}}
 
 # Title: "Targets" {{{
@@ -128,6 +129,22 @@ target_sources(nix_cpp_template PUBLIC
     BASE_DIRS include
     FILES include/simple.hh
 )
+
+if(ENABLE_TESTING)
+
+    add_executable(tests test/simple_test.cc)
+
+    target_include_directories(
+        tests
+        PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    )
+
+    target_link_libraries(tests nix_cpp_template GTest::GTest GTest::Main)
+    gtest_discover_tests(tests)
+
+endif()
+
+
 #}}}
 
 # Title: "Packaging" {{{
@@ -169,6 +186,13 @@ if(ENABLE_INSTALL)
     install(
         EXPORT ${PACKAGE_NAME}Targets
         NAMESPACE nixcpptmplt::
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}
+    )
+
+    install(
+        FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/template-config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}-config-version.cmake
         DESTINATION ${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}
     )
 
