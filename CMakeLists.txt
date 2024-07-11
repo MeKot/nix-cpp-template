@@ -7,7 +7,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 endif()
 #}}}
 
-#message(FATAL_ERROR "Name your project and package, specify version")
+message(FATAL_ERROR "Name your project and package, specify version")
 
 set(PACKAGE_NAME "nix-cpp-template")
 set(PACKAGE_DESCRIPTION "Nix CPP Template")
@@ -86,7 +86,7 @@ if (PARENT_PROJ_NAME)
     message(STATUS "PARENT_PROJ_NAME ${PARENT_PROJ_NAME}")
 else()
 
-    #message(FATAL_ERROR "Set CPP standard for the project")
+    message(FATAL_ERROR "Set CPP standard for the project")
 
     set(CMAKE_CXX_STANDARD 14)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -99,15 +99,12 @@ else()
     if (USE_SANITIZERS AND SUPPORT_USAN)
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined")
     endif()
-
-    include(third_party)
-    include(internal)
 endif()
 #}}}
 
 # Title: "Dependencies" {{{
 
-#message(FATAL_ERROR "Add dependencies here")
+message(FATAL_ERROR "Add dependencies here")
 
 find_package(absl REQUIRED)
 
@@ -120,7 +117,7 @@ endif()
 
 # Title: "Targets" {{{
 
-#message(FATAL_ERROR "Configure targets AND add the target libs as -Libs to pkg-config")
+message(FATAL_ERROR "Configure targets AND add the target libs as -Libs to pkg-config")
 
 add_library(nix_cpp_template STATIC)
 
@@ -149,7 +146,7 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_DATADIR}/${PACKAGE_NAME}
     )
 
-    #message(FATAL_ERROR "DID YOU ADD THE TARGET LIBS TO THE PKG-CONFIG???")
+    message(FATAL_ERROR "DID YOU ADD THE TARGET LIBS TO THE PKG-CONFIG???")
 
     configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/template.pc.in
@@ -161,7 +158,7 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
     )
 
-    #message(FATAL_ERROR "Add all the exportable targets here")
+    message(FATAL_ERROR "Add all the exportable targets here")
 
     install(
         TARGETS nix_cpp_template

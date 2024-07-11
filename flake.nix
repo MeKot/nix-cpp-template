@@ -37,6 +37,7 @@
         gtest
 
         # Compile time depenedencies
+        abseil-cpp
       ];
 
       # A cool shell for kicks
